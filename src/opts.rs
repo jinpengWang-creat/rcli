@@ -31,8 +31,8 @@ pub struct CsvOpts {
     #[arg(short, long, default_value_t = ',')]
     pub delimiter: char,
 
-    #[arg(long, default_value_t = true)]
-    pub header: bool,
+    #[arg(long)]
+    pub no_header: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
