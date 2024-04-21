@@ -1,8 +1,9 @@
 use std::fs;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
-use crate::opts::CsvOpt;
+use crate::opts::{CsvOpt, OutputFormat};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
@@ -22,11 +23,21 @@ pub fn process_csv(opt: CsvOpt) -> anyhow::Result<()> {
         .has_headers(opt.header)
         .from_path(opt.input)?;
     let mut result = Vec::with_capacity(128);
-    for record in reader.deserialize() {
-        let player: Player = record?;
-        result.push(player);
+    let headers = reader.headers()?.clone();
+    for record in reader.records() {
+        let record = record?;
+        let json_value = headers.iter().zip(record.iter()).collect::<Value>();
+        result.push(json_value);
     }
-    let json = serde_json::to_string_pretty(&result)?;
-    fs::write(&opt.output, json)?;
+    let json = match opt.format {
+        OutputFormat::Json => serde_json::to_string_pretty(&result)?,
+        OutputFormat::Yaml => serde_yaml::to_string(&result)?,
+    };
+
+    let output = opt.output.unwrap_or_else(|| match opt.format {
+        OutputFormat::Json => "output.json".to_string(),
+        OutputFormat::Yaml => "output.yaml".to_string(),
+    });
+    fs::write(output, json)?;
     Ok(())
 }

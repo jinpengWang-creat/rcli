@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, str::FromStr};
 
 use clap::{Parser, Subcommand};
 
@@ -15,13 +15,42 @@ pub enum SubCommand {
     CSV(CsvOpt),
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum OutputFormat {
+    Json,
+    Yaml,
+}
+
+impl FromStr for OutputFormat {
+    type Err = anyhow::Error;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value.to_lowercase().as_ref() {
+            "json" => Ok(OutputFormat::Json),
+            "yaml" => Ok(OutputFormat::Yaml),
+            v => anyhow::bail!("Unsupported format: {}", v),
+        }
+    }
+}
+
+impl From<OutputFormat> for &str {
+    fn from(value: OutputFormat) -> Self {
+        match value {
+            OutputFormat::Json => "json",
+            OutputFormat::Yaml => "yaml",
+        }
+    }
+}
+
 #[derive(Debug, Parser)]
 pub struct CsvOpt {
     #[arg(short, long, value_parser = verify_input_file)]
     pub input: String,
 
-    #[arg(short, long, default_value = "output.json")]
-    pub output: String,
+    #[arg(short, long)]
+    pub output: Option<String>,
+
+    #[arg(short, long, default_value = "json", value_parser = parse_format)]
+    pub format: OutputFormat,
 
     #[arg(short, long, default_value_t = ',')]
     pub delimiter: char,
@@ -36,4 +65,8 @@ fn verify_input_file(filename: &str) -> Result<String, &'static str> {
     } else {
         Err("File does not exist!")
     }
+}
+
+fn parse_format(format: &str) -> anyhow::Result<OutputFormat, anyhow::Error> {
+    format.parse()
 }
