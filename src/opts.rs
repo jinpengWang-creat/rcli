@@ -12,7 +12,27 @@ pub struct Opts {
 #[derive(Debug, Subcommand)]
 pub enum SubCommand {
     #[command(name = "csv", about = "Show CSV, or convert CSV to other formats")]
-    CSV(CsvOpt),
+    CSV(CsvOpts),
+    #[command(name = "genpass", about = "Generate a random password")]
+    GenPass(GenPassOpts),
+}
+
+#[derive(Debug, Parser)]
+pub struct CsvOpts {
+    #[arg(short, long, value_parser = verify_input_file)]
+    pub input: String,
+
+    #[arg(short, long)]
+    pub output: Option<String>,
+
+    #[arg(short, long, default_value = "json", value_parser = parse_format)]
+    pub format: OutputFormat,
+
+    #[arg(short, long, default_value_t = ',')]
+    pub delimiter: char,
+
+    #[arg(long, default_value_t = true)]
+    pub header: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -41,24 +61,6 @@ impl From<OutputFormat> for &str {
     }
 }
 
-#[derive(Debug, Parser)]
-pub struct CsvOpt {
-    #[arg(short, long, value_parser = verify_input_file)]
-    pub input: String,
-
-    #[arg(short, long)]
-    pub output: Option<String>,
-
-    #[arg(short, long, default_value = "json", value_parser = parse_format)]
-    pub format: OutputFormat,
-
-    #[arg(short, long, default_value_t = ',')]
-    pub delimiter: char,
-
-    #[arg(long, default_value_t = true)]
-    pub header: bool,
-}
-
 fn verify_input_file(filename: &str) -> Result<String, &'static str> {
     if Path::new(filename).exists() {
         Ok(filename.into())
@@ -69,4 +71,21 @@ fn verify_input_file(filename: &str) -> Result<String, &'static str> {
 
 fn parse_format(format: &str) -> anyhow::Result<OutputFormat, anyhow::Error> {
     format.parse()
+}
+#[derive(Debug, Parser)]
+pub struct GenPassOpts {
+    #[arg(short, long, default_value_t = 16)]
+    pub length: u8,
+
+    #[arg(long, default_value_t = false)]
+    pub uppercase: bool,
+
+    #[arg(long, default_value_t = true)]
+    pub lowercase: bool,
+
+    #[arg(long, default_value_t = true)]
+    pub number: bool,
+
+    #[arg(long, default_value_t = false)]
+    pub symbol: bool,
 }

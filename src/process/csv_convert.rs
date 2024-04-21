@@ -1,23 +1,10 @@
 use std::fs;
 
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::opts::{CsvOpt, OutputFormat};
+use crate::opts::{CsvOpts, OutputFormat};
 
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "PascalCase")]
-struct Player {
-    name: String,
-    position: String,
-    #[serde(rename = "DOB")]
-    dob: String,
-    nationality: String,
-    #[serde(rename = "Kit Number")]
-    kit: u8,
-}
-
-pub fn process_csv(opt: CsvOpt) -> anyhow::Result<()> {
+pub fn process_csv(opt: CsvOpts) -> anyhow::Result<()> {
     let mut reader = csv::ReaderBuilder::new()
         .delimiter(opt.delimiter as u8)
         .has_headers(opt.header)
