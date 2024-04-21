@@ -7,33 +7,33 @@ const SYMBOL: &[u8] = b"!@#$%^&*_+";
 
 pub fn process_genpass(
     length: u8,
-    upper: bool,
-    lower: bool,
-    number: bool,
-    symbol: bool,
+    no_upper: bool,
+    no_lower: bool,
+    no_number: bool,
+    no_symbol: bool,
 ) -> anyhow::Result<String> {
     let mut rng = rand::thread_rng();
     let mut password = Vec::new();
     let mut chars = Vec::new();
 
     let mut cur_length = 0;
-    if cur_length < length && upper {
+    if cur_length < length && !no_upper {
         chars.extend_from_slice(UPPER);
         password.push(generate_rand_char(&mut rng, UPPER));
         cur_length += 1;
     }
 
-    if cur_length < length && lower {
+    if cur_length < length && !no_lower {
         chars.extend_from_slice(LOWER);
         password.push(generate_rand_char(&mut rng, LOWER));
         cur_length += 1;
     }
-    if cur_length < length && number {
+    if cur_length < length && !no_number {
         chars.extend_from_slice(NUMBER);
         password.push(generate_rand_char(&mut rng, NUMBER));
         cur_length += 1;
     }
-    if cur_length < length && symbol {
+    if cur_length < length && !no_symbol {
         chars.extend_from_slice(SYMBOL);
         password.push(generate_rand_char(&mut rng, SYMBOL));
         cur_length += 1;

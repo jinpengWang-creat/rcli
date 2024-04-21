@@ -9,10 +9,10 @@ fn main() -> anyhow::Result<()> {
         SubCommand::GenPass(opt) => {
             let password = process_genpass(
                 opt.length,
-                opt.uppercase,
-                opt.lowercase,
-                opt.number,
-                opt.symbol,
+                opt.no_uppercase,
+                opt.no_lowercase,
+                opt.no_number,
+                opt.no_symbol,
             )?;
             println!("password: {:?}", password);
             let estimate = zxcvbn(&password, &[])?;
