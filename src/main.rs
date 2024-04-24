@@ -4,7 +4,7 @@ use clap::Parser;
 use rcli::{
     process_csv, process_decode, process_encode, process_genpass, process_text_generate,
     process_text_sign, process_text_verify, Base64SubCommand, Opts, OutputFormat, SubCommand,
-    TextSignFormat, TextSubCommand,
+    TextKeyGenerateFormat, TextSubCommand,
 };
 use zxcvbn::zxcvbn;
 
@@ -59,12 +59,12 @@ fn main() -> anyhow::Result<()> {
             TextSubCommand::Generate(opts) => {
                 let key = process_text_generate(opts.format)?;
                 match opts.format {
-                    TextSignFormat::Blake3 => {
+                    TextKeyGenerateFormat::Blake3 => {
                         let key = &key[0];
                         let filename = opts.output.join("blakes.txt");
                         fs::write(filename, key)?;
                     }
-                    TextSignFormat::Ed25519 => {
+                    TextKeyGenerateFormat::Ed25519 => {
                         let sk = &key[0];
                         let filename = opts.output.join("ed25519.sk");
                         fs::write(filename, sk)?;
@@ -73,6 +73,12 @@ fn main() -> anyhow::Result<()> {
                         fs::write(filename, pk)?;
                     }
                 }
+            }
+            TextSubCommand::Encrypt(_opts) => {
+                println!("encrypt");
+            }
+            TextSubCommand::Decrypt(_opts) => {
+                println!("decrypt");
             }
         },
     }

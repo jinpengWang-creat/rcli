@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 pub use self::{
     base64::{Base64Format, Base64SubCommand},
     csv::OutputFormat,
-    text::{TextSignFormat, TextSubCommand},
+    text::{TextKeyGenerateFormat, TextSignVerifyFormat, TextSubCommand},
 };
 use clap::{Parser, Subcommand};
 

@@ -1,6 +1,6 @@
 use std::{fs, io::Read, path::Path};
 
-use crate::{cli::TextSignFormat, get_reader, process};
+use crate::{cli::TextSignVerifyFormat, get_reader, process, TextKeyGenerateFormat};
 use anyhow::{Ok, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
@@ -151,15 +151,15 @@ impl TextVerify for Ed25519Verifier {
     }
 }
 
-pub fn process_text_sign(input: &str, key: &str, format: TextSignFormat) -> Result<String> {
+pub fn process_text_sign(input: &str, key: &str, format: TextSignVerifyFormat) -> Result<String> {
     let mut reader = get_reader(input)?;
 
     let signed = match format {
-        TextSignFormat::Blake3 => {
+        TextSignVerifyFormat::Blake3 => {
             let signer = Blake3::load(key)?;
             signer.sign(&mut reader)?
         }
-        TextSignFormat::Ed25519 => {
+        TextSignVerifyFormat::Ed25519 => {
             let singer = Ed25519Signer::load(key)?;
             singer.sign(&mut reader)?
         }
@@ -171,17 +171,17 @@ pub fn process_text_sign(input: &str, key: &str, format: TextSignFormat) -> Resu
 pub fn process_text_verify(
     input: &str,
     key: &str,
-    format: TextSignFormat,
+    format: TextSignVerifyFormat,
     sign: &str,
 ) -> Result<bool> {
     let mut reader = get_reader(input)?;
     let sign = URL_SAFE_NO_PAD.decode(sign)?;
     let signed = match format {
-        TextSignFormat::Blake3 => {
+        TextSignVerifyFormat::Blake3 => {
             let signer = Blake3::load(key)?;
             signer.verify(&mut reader, &sign)?
         }
-        TextSignFormat::Ed25519 => {
+        TextSignVerifyFormat::Ed25519 => {
             let singer = Ed25519Verifier::load(key)?;
             singer.verify(&mut reader, &sign)?
         }
@@ -189,15 +189,17 @@ pub fn process_text_verify(
     Ok(signed)
 }
 
-pub fn process_text_generate(format: TextSignFormat) -> Result<Vec<Vec<u8>>> {
+pub fn process_text_generate(format: TextKeyGenerateFormat) -> Result<Vec<Vec<u8>>> {
     match format {
-        TextSignFormat::Blake3 => Blake3::generate(),
-        TextSignFormat::Ed25519 => Ed25519Signer::generate(),
+        TextKeyGenerateFormat::Blake3 => Blake3::generate(),
+        TextKeyGenerateFormat::Ed25519 => Ed25519Signer::generate(),
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::error::Error;
+
     use super::*;
     #[test]
     fn test_ed25519_sign_verify() -> Result<()> {
@@ -208,5 +210,28 @@ mod tests {
         let sig = sk.sign(&mut &data[..])?;
         assert!(pk.verify(&mut &data[..], &sig)?);
         Ok(())
+    }
+
+    #[test]
+    fn test_chacha20poly1305_quick() {
+        use chacha20poly1305::{
+            aead::{Aead, AeadCore, KeyInit, OsRng},
+            ChaCha20Poly1305, Nonce,
+        };
+        use std::result::Result::Ok;
+
+        let key = ChaCha20Poly1305::generate_key(&mut OsRng);
+        let cipher = ChaCha20Poly1305::new(&key);
+        let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+        let ciphertext = cipher
+            .encrypt(&nonce, b"plaintext message".as_ref())
+            .unwrap();
+        println!("{:?}", ciphertext);
+        let cipher = ChaCha20Poly1305::new(&key);
+        let plaintext = cipher.decrypt(&nonce, ciphertext.as_ref());
+        println!("{:?}", plaintext);
+        if let Ok(msg) = plaintext {
+            println!("{:?}", String::from_utf8_lossy(&msg));
+        }
     }
 }
