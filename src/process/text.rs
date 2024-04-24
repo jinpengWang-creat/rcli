@@ -1,8 +1,16 @@
 use std::{fs, io::Read, path::Path};
 
-use crate::{cli::TextSignVerifyFormat, get_reader, process, TextKeyGenerateFormat};
+use crate::{
+    cli::{TextEncryptDecryptFormat, TextSignVerifyFormat},
+    get_reader, process, TextKeyGenerateFormat,
+};
 use anyhow::{Ok, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use chacha20poly1305::{
+    aead::{generic_array::GenericArray, Aead},
+    consts::{U12, U32},
+    AeadCore, ChaCha20Poly1305, KeyInit,
+};
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use rand::rngs::OsRng;
 
@@ -17,6 +25,12 @@ pub trait TextVerify {
 }
 
 pub trait KeyLoader {
+    fn load(path: impl AsRef<Path>) -> Result<Self>
+    where
+        Self: Sized;
+}
+
+pub trait NonceLoader {
     fn load(path: impl AsRef<Path>) -> Result<Self>
     where
         Self: Sized;
@@ -151,26 +165,59 @@ impl TextVerify for Ed25519Verifier {
     }
 }
 
-pub struct Chacha20poly1305 {
-    key: String,
-    nonce: String,
+pub struct Chacha20poly1305Key {
+    key: GenericArray<u8, U32>,
 }
 
-impl Chacha20poly1305 {
-    pub fn new(key: String, nonce: String) -> Self {
-        Chacha20poly1305 { key, nonce }
+impl Chacha20poly1305Key {
+    pub fn new(key: GenericArray<u8, U32>) -> Self {
+        Chacha20poly1305Key { key }
     }
 
     pub fn try_new(key: &[u8]) -> Result<Self> {
-        let key = VerifyingKey::from_bytes(key.try_into()?)?;
-        let signer = Ed25519Verifier::new(key);
+        let key = GenericArray::from_slice(key);
+        let signer = Chacha20poly1305Key::new(*key);
         Ok(signer)
     }
 }
 
-impl KeyGenerator for Chacha20poly1305 {
+impl KeyLoader for Chacha20poly1305Key {
+    fn load(path: impl AsRef<Path>) -> Result<Self> {
+        let key = fs::read(path)?;
+        Self::try_new(&key)
+    }
+}
+
+pub struct Chacha20poly1305Nonce {
+    key: GenericArray<u8, U12>,
+}
+
+impl Chacha20poly1305Nonce {
+    pub fn new(key: GenericArray<u8, U12>) -> Self {
+        Chacha20poly1305Nonce { key }
+    }
+
+    pub fn try_new(key: &[u8]) -> Result<Self> {
+        let key = GenericArray::from_slice(key);
+        let signer = Chacha20poly1305Nonce::new(*key);
+        Ok(signer)
+    }
+}
+
+impl NonceLoader for Chacha20poly1305Nonce {
+    fn load(path: impl AsRef<Path>) -> Result<Self> {
+        let key = fs::read(path)?;
+        Self::try_new(&key)
+    }
+}
+
+impl KeyGenerator for Chacha20poly1305Key {
     fn generate() -> Result<Vec<Vec<u8>>> {
-        todo!()
+        let key = ChaCha20Poly1305::generate_key(&mut OsRng);
+        let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+        let key: Vec<u8> = key.as_slice().into();
+        let nonce: Vec<u8> = nonce.as_slice().into();
+        Ok(vec![key, nonce])
     }
 }
 
@@ -216,13 +263,64 @@ pub fn process_text_generate(format: TextKeyGenerateFormat) -> Result<Vec<Vec<u8
     match format {
         TextKeyGenerateFormat::Blake3 => Blake3::generate(),
         TextKeyGenerateFormat::Ed25519 => Ed25519Signer::generate(),
-        TextKeyGenerateFormat::Chacha20poly1305 => Chacha20poly1305::generate(),
+        TextKeyGenerateFormat::Chacha20poly1305 => Chacha20poly1305Key::generate(),
     }
+}
+
+pub fn process_text_encrypt(
+    input: &str,
+    key: &str,
+    nonce: &str,
+    format: TextEncryptDecryptFormat,
+) -> Result<String> {
+    let mut reader = get_reader(input)?;
+
+    let ciphertext = match format {
+        TextEncryptDecryptFormat::Chacha20poly1305 => {
+            let chacha20poly1305_key = Chacha20poly1305Key::load(key)?;
+
+            let chacha20poly1305_nonce = Chacha20poly1305Nonce::load(nonce)?;
+            let mut buff = Vec::new();
+            reader.read_to_end(&mut buff)?;
+
+            let cipher = ChaCha20Poly1305::new(&chacha20poly1305_key.key);
+            cipher
+                .encrypt(&chacha20poly1305_nonce.key, buff.as_ref())
+                .expect("msg")
+        }
+    };
+    let ciphertext = URL_SAFE_NO_PAD.encode(ciphertext);
+    Ok(ciphertext)
+}
+
+pub fn process_text_decrypt(
+    input: &str,
+    key: &str,
+    nonce: &str,
+    format: TextEncryptDecryptFormat,
+) -> Result<Vec<u8>> {
+    let mut reader = get_reader(input)?;
+    let mut ciphertext = Vec::new();
+    reader.read_to_end(&mut ciphertext)?;
+    let ciphertext = URL_SAFE_NO_PAD.decode(ciphertext)?;
+
+    let plaintext = match format {
+        TextEncryptDecryptFormat::Chacha20poly1305 => {
+            let chacha20poly1305_key = Chacha20poly1305Key::load(key)?;
+
+            let chacha20poly1305_nonce = Chacha20poly1305Nonce::load(nonce)?;
+
+            let cipher = ChaCha20Poly1305::new(&chacha20poly1305_key.key);
+            cipher
+                .decrypt(&chacha20poly1305_nonce.key, ciphertext.as_ref())
+                .expect("msg")
+        }
+    };
+    Ok(plaintext)
 }
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
 
     use super::*;
     #[test]
@@ -240,7 +338,7 @@ mod tests {
     fn test_chacha20poly1305_quick() {
         use chacha20poly1305::{
             aead::{Aead, AeadCore, KeyInit, OsRng},
-            ChaCha20Poly1305, Nonce,
+            ChaCha20Poly1305,
         };
         use std::result::Result::Ok;
 

@@ -2,9 +2,9 @@ use std::fs;
 
 use clap::Parser;
 use rcli::{
-    process_csv, process_decode, process_encode, process_genpass, process_text_generate,
-    process_text_sign, process_text_verify, Base64SubCommand, Opts, OutputFormat, SubCommand,
-    TextKeyGenerateFormat, TextSubCommand,
+    process_csv, process_decode, process_encode, process_genpass, process_text_decrypt,
+    process_text_encrypt, process_text_generate, process_text_sign, process_text_verify,
+    Base64SubCommand, Opts, OutputFormat, SubCommand, TextKeyGenerateFormat, TextSubCommand,
 };
 use zxcvbn::zxcvbn;
 
@@ -73,15 +73,24 @@ fn main() -> anyhow::Result<()> {
                         fs::write(filename, pk)?;
                     }
                     TextKeyGenerateFormat::Chacha20poly1305 => {
-                        todo!()
+                        let sk = &key[0];
+                        let filename = opts.output.join("chacha20poly1305.key");
+                        fs::write(filename, sk)?;
+                        let pk = &key[1];
+                        let filename = opts.output.join("chacha20poly1305.nonce");
+                        fs::write(filename, pk)?;
                     }
                 }
             }
-            TextSubCommand::Encrypt(_opts) => {
-                println!("encrypt");
+            TextSubCommand::Encrypt(opts) => {
+                let ciphertext =
+                    process_text_encrypt(&opts.input, &opts.key, &opts.nonce, opts.format)?;
+                fs::write(opts.output, ciphertext)?;
             }
-            TextSubCommand::Decrypt(_opts) => {
-                println!("decrypt");
+            TextSubCommand::Decrypt(opts) => {
+                let plaintext =
+                    process_text_decrypt(&opts.input, &opts.key, &opts.nonce, opts.format)?;
+                println!("plaintext: {}", String::from_utf8(plaintext)?);
             }
         },
     }
