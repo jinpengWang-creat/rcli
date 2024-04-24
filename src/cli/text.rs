@@ -87,6 +87,7 @@ pub enum TextSignVerifyFormat {
 pub enum TextKeyGenerateFormat {
     Blake3,
     Ed25519,
+    Chacha20poly1305,
 }
 
 #[derive(Debug, Parser, Clone, Copy)]
@@ -120,6 +121,7 @@ impl From<TextKeyGenerateFormat> for &str {
         match value {
             TextKeyGenerateFormat::Blake3 => "blake3",
             TextKeyGenerateFormat::Ed25519 => "ed25519",
+            TextKeyGenerateFormat::Chacha20poly1305 => "chacha20poly1305",
         }
     }
 }
@@ -131,6 +133,7 @@ impl FromStr for TextKeyGenerateFormat {
         match s {
             "blake3" => Ok(TextKeyGenerateFormat::Blake3),
             "ed25519" => Ok(TextKeyGenerateFormat::Ed25519),
+            "chacha20poly1305" => Ok(TextKeyGenerateFormat::Chacha20poly1305),
             v => anyhow::bail!("Unsupported type: {:?}", v),
         }
     }

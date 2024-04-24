@@ -151,6 +151,29 @@ impl TextVerify for Ed25519Verifier {
     }
 }
 
+pub struct Chacha20poly1305 {
+    key: String,
+    nonce: String,
+}
+
+impl Chacha20poly1305 {
+    pub fn new(key: String, nonce: String) -> Self {
+        Chacha20poly1305 { key, nonce }
+    }
+
+    pub fn try_new(key: &[u8]) -> Result<Self> {
+        let key = VerifyingKey::from_bytes(key.try_into()?)?;
+        let signer = Ed25519Verifier::new(key);
+        Ok(signer)
+    }
+}
+
+impl KeyGenerator for Chacha20poly1305 {
+    fn generate() -> Result<Vec<Vec<u8>>> {
+        todo!()
+    }
+}
+
 pub fn process_text_sign(input: &str, key: &str, format: TextSignVerifyFormat) -> Result<String> {
     let mut reader = get_reader(input)?;
 
@@ -193,6 +216,7 @@ pub fn process_text_generate(format: TextKeyGenerateFormat) -> Result<Vec<Vec<u8
     match format {
         TextKeyGenerateFormat::Blake3 => Blake3::generate(),
         TextKeyGenerateFormat::Ed25519 => Ed25519Signer::generate(),
+        TextKeyGenerateFormat::Chacha20poly1305 => Chacha20poly1305::generate(),
     }
 }
 

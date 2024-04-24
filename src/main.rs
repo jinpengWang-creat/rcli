@@ -72,6 +72,9 @@ fn main() -> anyhow::Result<()> {
                         let filename = opts.output.join("ed25519.pk");
                         fs::write(filename, pk)?;
                     }
+                    TextKeyGenerateFormat::Chacha20poly1305 => {
+                        todo!()
+                    }
                 }
             }
             TextSubCommand::Encrypt(_opts) => {
