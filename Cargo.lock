@@ -768,6 +768,7 @@ dependencies = [
  "ed25519-dalek",
  "jsonwebtoken",
  "rand",
+ "ring",
  "serde",
  "serde_json",
  "serde_yaml",

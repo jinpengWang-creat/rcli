@@ -2,10 +2,10 @@ use std::fs;
 
 use clap::Parser;
 use rcli::{
-    process_csv, process_decode, process_encode, process_genpass, process_text_decrypt,
-    process_text_encrypt, process_text_generate, process_text_sign, process_text_verify,
-    Base64SubCommand, JwtSubCommand, Opts, OutputFormat, SubCommand, TextKeyGenerateFormat,
-    TextSubCommand,
+    process_csv, process_decode, process_encode, process_genpass, process_jwt_sign,
+    process_text_decrypt, process_text_encrypt, process_text_generate, process_text_sign,
+    process_text_verify, Base64SubCommand, JwtSubCommand, Opts, OutputFormat, SubCommand,
+    TextKeyGenerateFormat, TextSubCommand,
 };
 use zxcvbn::zxcvbn;
 
@@ -96,9 +96,18 @@ fn main() -> anyhow::Result<()> {
         },
         SubCommand::Jwt(subcmd) => match subcmd {
             JwtSubCommand::Sign(opts) => {
-                println!("{:?}", opts);
+                let token = process_jwt_sign(
+                    opts.alg,
+                    opts.aud.as_deref(),
+                    opts.exp,
+                    opts.iat,
+                    opts.iss.as_deref(),
+                    opts.sub.as_deref(),
+                    "3&5rpiG$z1L5DzVQwnQ+AM9swQwuXKEY",
+                )?;
+                println!("{:?}", token);
             }
-            JwtSubCommand::Verify(opts) => {
+            JwtSubCommand::Verify(_opts) => {
                 println!("verify a jwt")
             }
         },

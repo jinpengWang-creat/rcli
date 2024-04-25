@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 pub use self::{
     base64::{Base64Format, Base64SubCommand},
     csv::OutputFormat,
-    jwt::JwtSubCommand,
+    jwt::{ExpireTime, JwtSubCommand},
     text::{TextEncryptDecryptFormat, TextKeyGenerateFormat, TextSignVerifyFormat, TextSubCommand},
 };
 use clap::{Parser, Subcommand};

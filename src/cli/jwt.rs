@@ -1,7 +1,7 @@
-use std::str::FromStr;
-
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 use jsonwebtoken::Algorithm;
+use std::str::FromStr;
 #[derive(Debug, Subcommand)]
 pub enum JwtSubCommand {
     #[command(about = "Sign a jwt")]
@@ -16,9 +16,9 @@ pub struct JwtSignOpts {
     #[arg(long)]
     pub aud: Option<String>,
 
-    /// Expiration time (as UTC timestamp)
-    #[arg(long)]
-    pub exp: usize,
+    /// Expiration time (format: time + unit; eg. 10d;  unit: s,m,h,d)
+    #[arg(long, default_value = "3m", value_parser = parse_jwt_expire_time)]
+    pub exp: ExpireTime,
 
     /// Issued at (as UTC timestamp)
     #[arg(long)]
@@ -27,10 +27,6 @@ pub struct JwtSignOpts {
     /// Issuer
     #[arg(long)]
     pub iss: Option<String>,
-
-    /// Not Before (as UTC timestamp)
-    #[arg(long)]
-    pub nbf: Option<usize>,
 
     /// Subject (whom token refers to)
     #[arg(long)]
@@ -52,24 +48,28 @@ fn parse_jwt_head_algorithm(al: &str) -> Result<Algorithm, jsonwebtoken::errors:
     al.parse()
 }
 
-#[derive(Debug)]
-struct ExpireTime(usize);
+fn parse_jwt_expire_time(time: &str) -> Result<ExpireTime> {
+    time.parse()
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ExpireTime(pub usize);
 
 impl FromStr for ExpireTime {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let times = s.trim();
-        let unit = &times[(times.len() - 1)..];
-        let times = &times[..(times.len() - 1)];
-        let times: usize = times.parse()?;
+        let time = s.trim();
+        let unit = &time[(time.len() - 1)..];
+        let time = &time[..(time.len() - 1)];
+        let time: usize = time.parse()?;
         let current_time = jsonwebtoken::get_current_timestamp() as usize;
         let expire_time = match unit {
-            "s" => current_time + times,
-            "m" => current_time + times * 60,
-            "h" => current_time + times * 60 * 60,
-            "d" => current_time + times * 60 * 60 * 24,
-            _ => anyhow::bail!("Unsupport unit: {}", unit),
+            "s" => current_time + time,
+            "m" => current_time + time * 60,
+            "h" => current_time + time * 60 * 60,
+            "d" => current_time + time * 60 * 60 * 24,
+            _ => anyhow::bail!("Unsupported unit: {}", unit),
         };
         Ok(ExpireTime(expire_time))
     }
@@ -92,9 +92,10 @@ mod tests {
 
     #[test]
     fn test_expire_time_from_str() {
-        let s = "10s";
+        let s = "14d";
         let expire_time: ExpireTime = s.parse().unwrap();
-        println!("{:?}", jsonwebtoken::get_current_timestamp());
-        println!("{:?}", expire_time);
+        let cur_time = jsonwebtoken::get_current_timestamp() as usize;
+        let expire = cur_time + 14 * 24 * 60 * 60;
+        assert_eq!(expire, expire_time.0)
     }
 }
