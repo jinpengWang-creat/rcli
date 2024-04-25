@@ -4,7 +4,8 @@ use clap::Parser;
 use rcli::{
     process_csv, process_decode, process_encode, process_genpass, process_text_decrypt,
     process_text_encrypt, process_text_generate, process_text_sign, process_text_verify,
-    Base64SubCommand, Opts, OutputFormat, SubCommand, TextKeyGenerateFormat, TextSubCommand,
+    Base64SubCommand, JwtSubCommand, Opts, OutputFormat, SubCommand, TextKeyGenerateFormat,
+    TextSubCommand,
 };
 use zxcvbn::zxcvbn;
 
@@ -91,6 +92,14 @@ fn main() -> anyhow::Result<()> {
                 let plaintext =
                     process_text_decrypt(&opts.input, &opts.key, &opts.nonce, opts.format)?;
                 println!("plaintext: {}", String::from_utf8(plaintext)?);
+            }
+        },
+        SubCommand::Jwt(subcmd) => match subcmd {
+            JwtSubCommand::Sign(opts) => {
+                println!("{:?}", opts);
+            }
+            JwtSubCommand::Verify(opts) => {
+                println!("verify a jwt")
             }
         },
     }

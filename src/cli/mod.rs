@@ -1,6 +1,7 @@
 mod base64;
 mod csv;
 mod genpass;
+mod jwt;
 mod text;
 
 use std::path::{Path, PathBuf};
@@ -8,6 +9,7 @@ use std::path::{Path, PathBuf};
 pub use self::{
     base64::{Base64Format, Base64SubCommand},
     csv::OutputFormat,
+    jwt::JwtSubCommand,
     text::{TextEncryptDecryptFormat, TextKeyGenerateFormat, TextSignVerifyFormat, TextSubCommand},
 };
 use clap::{Parser, Subcommand};
@@ -31,6 +33,8 @@ pub enum SubCommand {
     Base64(Base64SubCommand),
     #[command(subcommand)]
     Text(TextSubCommand),
+    #[command(subcommand)]
+    Jwt(JwtSubCommand),
 }
 
 fn verify_file(filename: &str) -> Result<String, &'static str> {
