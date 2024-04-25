@@ -1,14 +1,15 @@
 mod base64;
 mod csv;
 mod genpass;
+mod http;
 mod jwt;
 mod text;
-
 use std::path::{Path, PathBuf};
 
 pub use self::{
     base64::{Base64Format, Base64SubCommand},
     csv::OutputFormat,
+    http::HttpSubCommand,
     jwt::{ExpireTime, JwtSubCommand},
     text::{TextEncryptDecryptFormat, TextKeyGenerateFormat, TextSignVerifyFormat, TextSubCommand},
 };
@@ -35,6 +36,8 @@ pub enum SubCommand {
     Text(TextSubCommand),
     #[command(subcommand)]
     Jwt(JwtSubCommand),
+    #[command(subcommand)]
+    Http(HttpSubCommand),
 }
 
 fn verify_file(filename: &str) -> Result<String, &'static str> {
