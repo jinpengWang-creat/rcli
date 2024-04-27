@@ -1,3 +1,10 @@
 ### test index
 
-GET http://localhost:8080/encrypt.txt
+GET http://localhost:8080/README.md
+
+### test index
+
+GET http://localhost:8080/fixtures
+
+### test tower
+GET http://localhost:8080/tower/fixtures/
