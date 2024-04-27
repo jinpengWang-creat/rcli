@@ -9,7 +9,8 @@ use rcli::{
 };
 use zxcvbn::zxcvbn;
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
     let opts = Opts::parse();
     match opts.cmd {
@@ -113,7 +114,7 @@ fn main() -> anyhow::Result<()> {
             }
         },
         SubCommand::Http(subcmd) => match subcmd {
-            HttpSubCommand::Serve(opts) => process_http_serve(&opts.dir, opts.port)?,
+            HttpSubCommand::Serve(opts) => process_http_serve(opts.dir, opts.port).await?,
         },
     }
     Ok(())
