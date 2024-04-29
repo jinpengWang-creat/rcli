@@ -1,14 +1,13 @@
 use crate::cli::ExpireTime;
-use crate::utils::get_reader;
 use anyhow::Result;
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 
 pub fn process_jwt_sign(
     alg: Algorithm,
-    aud: Option<&str>,
+    aud: Option<String>,
     exp: ExpireTime,
-    sub: Option<&str>,
+    sub: Option<String>,
     secret: &str,
 ) -> Result<String> {
     let mut claims = Claims::default();
@@ -21,18 +20,13 @@ pub fn process_jwt_sign(
 pub fn process_jwt_verify(
     alg: Algorithm,
     auds: Option<&[String]>,
-    input: &str,
+    token: &str,
     secret: &str,
 ) -> Result<()> {
-    let mut reader = get_reader(input)?;
-    let mut token = String::new();
-    reader.read_to_string(&mut token)?;
-    let token = token.trim();
     let mut validation = Validation::new(alg);
     if let Some(auds) = auds {
         validation.set_audience(auds);
     }
-    println!("{:?}", validation.aud);
     let token_message = decode::<Claims>(
         token,
         &DecodingKey::from_secret(secret.as_ref()),
@@ -44,16 +38,14 @@ pub fn process_jwt_verify(
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct Claims {
-    aud: String,
+    aud: Option<String>,
     exp: usize,
-    sub: String,
+    sub: Option<String>,
 }
 
 impl Claims {
-    fn aud(&mut self, aud: Option<&str>) -> &mut Self {
-        if let Some(aud) = aud {
-            self.aud = aud.to_string();
-        }
+    fn aud(&mut self, aud: Option<String>) -> &mut Self {
+        self.aud = aud;
         self
     }
 
@@ -61,10 +53,8 @@ impl Claims {
         self.exp = exp.0;
         self
     }
-    fn sub(&mut self, sub: Option<&str>) -> &mut Self {
-        if let Some(sub) = sub {
-            self.sub = sub.to_string();
-        }
+    fn sub(&mut self, sub: Option<String>) -> &mut Self {
+        self.sub = sub;
         self
     }
 }

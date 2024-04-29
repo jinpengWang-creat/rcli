@@ -1,11 +1,11 @@
 use crate::{process_jwt_sign, process_jwt_verify, CmdExecutor};
 
-use super::verify_file;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use enum_dispatch::enum_dispatch;
 use jsonwebtoken::Algorithm;
 use std::str::FromStr;
+use tokio::fs;
 
 #[derive(Debug, Subcommand)]
 #[enum_dispatch(CmdExecutor)]
@@ -45,8 +45,8 @@ pub struct JwtVerifyOpts {
     #[arg(long, default_value = "HS256", value_parser = parse_jwt_head_algorithm)]
     pub alg: Algorithm,
     /// token
-    #[arg(long, default_value = "-", value_parser = verify_file)]
-    pub input: String,
+    #[arg(short, long)]
+    pub token: String,
 
     /// Audience
     #[arg(long)]
@@ -86,21 +86,16 @@ impl FromStr for ExpireTime {
 
 impl CmdExecutor for JwtSignOpts {
     async fn execute(self) -> anyhow::Result<()> {
-        let token = process_jwt_sign(
-            self.alg,
-            self.aud.as_deref(),
-            self.exp,
-            self.sub.as_deref(),
-            "secret",
-        )?;
+        let token = process_jwt_sign(self.alg, self.aud, self.exp, self.sub, "secret")?;
         println!("{:?}", token);
+        fs::write(&self.output, token).await?;
         Ok(())
     }
 }
 
 impl CmdExecutor for JwtVerifyOpts {
     async fn execute(self) -> anyhow::Result<()> {
-        process_jwt_verify(self.alg, self.aud.as_deref(), &self.input, "secret")
+        process_jwt_verify(self.alg, self.aud.as_deref(), &self.token, "secret")
     }
 }
 #[cfg(test)]
