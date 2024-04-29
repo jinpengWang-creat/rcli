@@ -3,10 +3,12 @@ use crate::{process_jwt_sign, process_jwt_verify, CmdExecutor};
 use super::verify_file;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use enum_dispatch::enum_dispatch;
 use jsonwebtoken::Algorithm;
 use std::str::FromStr;
 
 #[derive(Debug, Subcommand)]
+#[enum_dispatch(CmdExecutor)]
 pub enum JwtSubCommand {
     #[command(about = "Sign a jwt")]
     Sign(JwtSignOpts),
@@ -79,15 +81,6 @@ impl FromStr for ExpireTime {
             _ => anyhow::bail!("Unsupported unit: {}", unit),
         };
         Ok(ExpireTime(expire_time))
-    }
-}
-
-impl CmdExecutor for JwtSubCommand {
-    async fn execute(self) -> anyhow::Result<()> {
-        match self {
-            JwtSubCommand::Sign(opts) => opts.execute().await,
-            JwtSubCommand::Verify(opts) => opts.execute().await,
-        }
     }
 }
 

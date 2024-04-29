@@ -6,18 +6,9 @@ mod jwt;
 mod text;
 use std::path::{Path, PathBuf};
 
-use crate::CmdExecutor;
-
-pub use self::{
-    base64::{Base64Format, Base64SubCommand},
-    csv::OutputFormat,
-    http::HttpSubCommand,
-    jwt::{ExpireTime, JwtSubCommand},
-    text::{TextEncryptDecryptFormat, TextKeyGenerateFormat, TextSignVerifyFormat, TextSubCommand},
-};
+pub use self::{base64::*, csv::*, genpass::*, http::*, jwt::*, text::*};
 use clap::{Parser, Subcommand};
-
-use self::{csv::CsvOpts, genpass::GenPassOpts};
+use enum_dispatch::enum_dispatch;
 
 #[derive(Parser, Debug)]
 #[command(name = "rcli", version, about, long_about = None)]
@@ -27,6 +18,7 @@ pub struct Opts {
 }
 
 #[derive(Debug, Subcommand)]
+#[enum_dispatch(CmdExecutor)]
 pub enum SubCommand {
     #[command(name = "csv", about = "Show CSV, or convert CSV to other formats")]
     CSV(CsvOpts),
@@ -56,19 +48,6 @@ fn verify_path(path: &str) -> Result<PathBuf, &'static str> {
         Ok(path.into())
     } else {
         Err("Path does not exist or is not a directory")
-    }
-}
-
-impl CmdExecutor for SubCommand {
-    async fn execute(self) -> anyhow::Result<()> {
-        match self {
-            SubCommand::CSV(opt) => opt.execute().await,
-            SubCommand::GenPass(opt) => opt.execute().await,
-            SubCommand::Base64(cmd) => cmd.execute().await,
-            SubCommand::Text(subcmd) => subcmd.execute().await,
-            SubCommand::Jwt(subcmd) => subcmd.execute().await,
-            SubCommand::Http(subcmd) => subcmd.execute().await,
-        }
     }
 }
 
