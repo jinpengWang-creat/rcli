@@ -100,17 +100,17 @@ async fn process_file(path: PathBuf) -> Response {
             StatusCode::NOT_FOUND,
             format!("File {} not fount!", path.display()),
         )
-            .into_response()
     } else {
         match tokio::fs::read_to_string(path).await {
             Ok(content) => {
                 info!("Read {} bytes", content.len());
-                (StatusCode::OK, content).into_response()
+                (StatusCode::OK, content)
             }
             Err(e) => {
                 warn!("Error reading file: {:?}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
+                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
             }
         }
     }
+    .into_response()
 }

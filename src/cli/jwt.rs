@@ -1,7 +1,9 @@
+use super::verify_file;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use jsonwebtoken::Algorithm;
 use std::str::FromStr;
+
 #[derive(Debug, Subcommand)]
 pub enum JwtSubCommand {
     #[command(about = "Sign a jwt")]
@@ -20,14 +22,6 @@ pub struct JwtSignOpts {
     #[arg(long, default_value = "3m", value_parser = parse_jwt_expire_time)]
     pub exp: ExpireTime,
 
-    /// Issued at (as UTC timestamp)
-    #[arg(long)]
-    pub iat: Option<usize>,
-
-    /// Issuer
-    #[arg(long)]
-    pub iss: Option<String>,
-
     /// Subject (whom token refers to)
     #[arg(long)]
     pub sub: Option<String>,
@@ -42,7 +36,18 @@ pub struct JwtSignOpts {
 }
 
 #[derive(Debug, Parser)]
-pub struct JwtVerifyOpts {}
+pub struct JwtVerifyOpts {
+    /// The algorithm used
+    #[arg(long, default_value = "HS256", value_parser = parse_jwt_head_algorithm)]
+    pub alg: Algorithm,
+    /// token
+    #[arg(long, default_value = "-", value_parser = verify_file)]
+    pub input: String,
+
+    /// Audience
+    #[arg(long)]
+    pub aud: Option<Vec<String>>,
+}
 
 fn parse_jwt_head_algorithm(al: &str) -> Result<Algorithm, jsonwebtoken::errors::Error> {
     al.parse()

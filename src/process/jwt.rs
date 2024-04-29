@@ -1,34 +1,52 @@
 use crate::cli::ExpireTime;
+use crate::utils::get_reader;
 use anyhow::Result;
-use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
-use ring::{hmac, rand};
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use ring::{digest, hmac, rand};
 use serde::{Deserialize, Serialize};
 
 pub fn process_jwt_sign(
     alg: Algorithm,
-    aut: Option<&str>,
-    expr: ExpireTime,
-    iat: Option<usize>,
-    iss: Option<&str>,
+    aud: Option<&str>,
+    exp: ExpireTime,
     sub: Option<&str>,
     secret: &str,
 ) -> Result<String> {
     let mut claims = Claims::default();
-    let claims = claims.aud(aut).expr(expr).sub(sub).iat(iat).iss(iss);
+    let claims = claims.aud(aud).exp(exp).sub(sub);
     let header = Header::new(alg);
-    let rng = rand::SystemRandom::new();
-    let key = hmac::Key::generate(hmac::HMAC_SHA256, &rng)?;
-    let tag = hmac::sign(&key, secret.as_bytes());
-    let token = encode(&header, claims, &EncodingKey::from_secret(tag.as_ref()))?;
+    let token = encode(&header, claims, &EncodingKey::from_secret(secret.as_ref()))?;
     Ok(token)
+}
+
+pub fn process_jwt_verify(
+    alg: Algorithm,
+    auds: Option<&[String]>,
+    input: &str,
+    secret: &str,
+) -> Result<()> {
+    let mut reader = get_reader(input)?;
+    let mut token = String::new();
+    reader.read_to_string(&mut token)?;
+    let token = token.trim();
+    let mut validation = Validation::new(alg);
+    if let Some(auds) = auds {
+        validation.set_audience(auds);
+    }
+    println!("{:?}", validation.aud);
+    let token_message = decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(secret.as_ref()),
+        &validation,
+    );
+    println!("message: {:?}", token_message);
+    Ok(())
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct Claims {
     aud: String,
-    expr: usize,
-    iat: usize,
-    iss: String,
+    exp: usize,
     sub: String,
 }
 
@@ -40,21 +58,8 @@ impl Claims {
         self
     }
 
-    fn expr(&mut self, expr: ExpireTime) -> &mut Self {
-        self.expr = expr.0;
-        self
-    }
-
-    fn iat(&mut self, iat: Option<usize>) -> &mut Self {
-        if let Some(iat) = iat {
-            self.iat = iat;
-        }
-        self
-    }
-    fn iss(&mut self, iss: Option<&str>) -> &mut Self {
-        if let Some(iss) = iss {
-            self.iss = iss.to_string();
-        }
+    fn exp(&mut self, exp: ExpireTime) -> &mut Self {
+        self.exp = exp.0;
         self
     }
     fn sub(&mut self, sub: Option<&str>) -> &mut Self {

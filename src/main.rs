@@ -3,9 +3,10 @@ use std::fs;
 use clap::Parser;
 use rcli::{
     process_csv, process_decode, process_encode, process_genpass, process_http_serve,
-    process_jwt_sign, process_text_decrypt, process_text_encrypt, process_text_generate,
-    process_text_sign, process_text_verify, Base64SubCommand, HttpSubCommand, JwtSubCommand, Opts,
-    OutputFormat, SubCommand, TextKeyGenerateFormat, TextSubCommand,
+    process_jwt_sign, process_jwt_verify, process_text_decrypt, process_text_encrypt,
+    process_text_generate, process_text_sign, process_text_verify, Base64SubCommand,
+    HttpSubCommand, JwtSubCommand, Opts, OutputFormat, SubCommand, TextKeyGenerateFormat,
+    TextSubCommand,
 };
 use zxcvbn::zxcvbn;
 
@@ -102,15 +103,13 @@ async fn main() -> anyhow::Result<()> {
                     opts.alg,
                     opts.aud.as_deref(),
                     opts.exp,
-                    opts.iat,
-                    opts.iss.as_deref(),
                     opts.sub.as_deref(),
-                    "3&5rpiG$z1L5DzVQwnQ+AM9swQwuXKEY",
+                    "secret",
                 )?;
                 println!("{:?}", token);
             }
-            JwtSubCommand::Verify(_opts) => {
-                println!("verify a jwt")
+            JwtSubCommand::Verify(opts) => {
+                process_jwt_verify(opts.alg, opts.aud.as_deref(), &opts.input, "secret")?
             }
         },
         SubCommand::Http(subcmd) => match subcmd {
