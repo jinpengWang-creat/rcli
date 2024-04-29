@@ -2,7 +2,6 @@ use crate::cli::ExpireTime;
 use crate::utils::get_reader;
 use anyhow::Result;
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
-use ring::{digest, hmac, rand};
 use serde::{Deserialize, Serialize};
 
 pub fn process_jwt_sign(

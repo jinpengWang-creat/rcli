@@ -221,7 +221,7 @@ impl KeyGenerator for Chacha20poly1305Key {
     }
 }
 
-pub fn process_text_sign(input: &str, key: &str, format: TextSignVerifyFormat) -> Result<String> {
+pub fn process_text_sign(input: &str, key: &str, format: TextSignVerifyFormat) -> Result<Vec<u8>> {
     let mut reader = get_reader(input)?;
 
     let signed = match format {
@@ -234,7 +234,6 @@ pub fn process_text_sign(input: &str, key: &str, format: TextSignVerifyFormat) -
             singer.sign(&mut reader)?
         }
     };
-    let signed = URL_SAFE_NO_PAD.encode(signed);
     Ok(signed)
 }
 
@@ -242,18 +241,17 @@ pub fn process_text_verify(
     input: &str,
     key: &str,
     format: TextSignVerifyFormat,
-    sign: &str,
+    sign: &[u8],
 ) -> Result<bool> {
     let mut reader = get_reader(input)?;
-    let sign = URL_SAFE_NO_PAD.decode(sign)?;
     let signed = match format {
         TextSignVerifyFormat::Blake3 => {
             let signer = Blake3::load(key)?;
-            signer.verify(&mut reader, &sign)?
+            signer.verify(&mut reader, sign)?
         }
         TextSignVerifyFormat::Ed25519 => {
             let singer = Ed25519Verifier::load(key)?;
-            singer.verify(&mut reader, &sign)?
+            singer.verify(&mut reader, sign)?
         }
     };
     Ok(signed)
@@ -272,7 +270,7 @@ pub fn process_text_encrypt(
     key: &str,
     nonce: &str,
     format: TextEncryptDecryptFormat,
-) -> Result<String> {
+) -> Result<Vec<u8>> {
     let mut reader = get_reader(input)?;
 
     let ciphertext = match format {
@@ -289,7 +287,6 @@ pub fn process_text_encrypt(
                 .expect("msg")
         }
     };
-    let ciphertext = URL_SAFE_NO_PAD.encode(ciphertext);
     Ok(ciphertext)
 }
 
@@ -313,7 +310,7 @@ pub fn process_text_decrypt(
             let cipher = ChaCha20Poly1305::new(&chacha20poly1305_key.key);
             cipher
                 .decrypt(&chacha20poly1305_nonce.key, ciphertext.as_ref())
-                .expect("msg")
+                .expect("Error to decrypt text!")
         }
     };
     Ok(plaintext)

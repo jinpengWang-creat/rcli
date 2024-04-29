@@ -2,6 +2,8 @@ use std::str::FromStr;
 
 use clap::Parser;
 
+use crate::{process_csv, CmdExecutor};
+
 use super::verify_file;
 
 #[derive(Debug, Parser)]
@@ -50,4 +52,20 @@ impl From<OutputFormat> for &str {
 
 fn parse_format(format: &str) -> anyhow::Result<OutputFormat, anyhow::Error> {
     format.parse()
+}
+
+impl CmdExecutor for CsvOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let output = self.output.unwrap_or_else(|| match self.format {
+            OutputFormat::Json => "output.json".to_string(),
+            OutputFormat::Yaml => "output.yaml".to_string(),
+        });
+        process_csv(
+            &self.input,
+            &output,
+            self.format,
+            self.delimiter,
+            self.no_header,
+        )
+    }
 }

@@ -2,6 +2,9 @@ use std::{fmt, str::FromStr};
 
 use anyhow::Ok;
 use clap::{Parser, Subcommand};
+use tokio::fs;
+
+use crate::{process_decode, process_encode, CmdExecutor};
 
 use super::verify_file;
 
@@ -65,5 +68,30 @@ fn parse_base64_format(input: &str) -> Result<Base64Format, anyhow::Error> {
 impl fmt::Display for Base64Format {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", Into::<&str>::into(*self))
+    }
+}
+
+impl CmdExecutor for Base64SubCommand {
+    async fn execute(self) -> anyhow::Result<()> {
+        match self {
+            Base64SubCommand::Encode(opts) => opts.execute().await,
+            Base64SubCommand::Decode(opts) => opts.execute().await,
+        }
+    }
+}
+
+impl CmdExecutor for Base64EncodeOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let encoded = process_encode(&self.input, self.format)?;
+        fs::write(&self.output, encoded).await?;
+        Ok(())
+    }
+}
+
+impl CmdExecutor for Base64DecodeOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let decode = process_decode(&self.input, self.format)?;
+        println!("decode: {:?}", String::from_utf8(decode));
+        Ok(())
     }
 }

@@ -6,6 +6,8 @@ mod jwt;
 mod text;
 use std::path::{Path, PathBuf};
 
+use crate::CmdExecutor;
+
 pub use self::{
     base64::{Base64Format, Base64SubCommand},
     csv::OutputFormat,
@@ -30,13 +32,13 @@ pub enum SubCommand {
     CSV(CsvOpts),
     #[command(name = "genpass", about = "Generate a random password")]
     GenPass(GenPassOpts),
-    #[command(subcommand)]
+    #[command(subcommand, about = "Base64 encode/decode")]
     Base64(Base64SubCommand),
-    #[command(subcommand)]
+    #[command(subcommand, about = "Text sign/verify")]
     Text(TextSubCommand),
-    #[command(subcommand)]
+    #[command(subcommand, about = "Generate or verify a jwt")]
     Jwt(JwtSubCommand),
-    #[command(subcommand)]
+    #[command(subcommand, about = "Http server")]
     Http(HttpSubCommand),
 }
 
@@ -54,6 +56,19 @@ fn verify_path(path: &str) -> Result<PathBuf, &'static str> {
         Ok(path.into())
     } else {
         Err("Path does not exist or is not a directory")
+    }
+}
+
+impl CmdExecutor for SubCommand {
+    async fn execute(self) -> anyhow::Result<()> {
+        match self {
+            SubCommand::CSV(opt) => opt.execute().await,
+            SubCommand::GenPass(opt) => opt.execute().await,
+            SubCommand::Base64(cmd) => cmd.execute().await,
+            SubCommand::Text(subcmd) => subcmd.execute().await,
+            SubCommand::Jwt(subcmd) => subcmd.execute().await,
+            SubCommand::Http(subcmd) => subcmd.execute().await,
+        }
     }
 }
 

@@ -1,6 +1,13 @@
 use std::{path::PathBuf, str::FromStr};
 
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use clap::{Parser, Subcommand};
+use tokio::fs;
+
+use crate::{
+    process_text_decrypt, process_text_encrypt, process_text_generate, process_text_sign,
+    process_text_verify, CmdExecutor,
+};
 
 use super::{verify_file, verify_path};
 
@@ -170,4 +177,81 @@ fn parse_text_encrypt_decrypt_format(
     format: &str,
 ) -> Result<TextEncryptDecryptFormat, anyhow::Error> {
     format.parse()
+}
+
+impl CmdExecutor for TextSubCommand {
+    async fn execute(self) -> anyhow::Result<()> {
+        match self {
+            TextSubCommand::Sign(opts) => opts.execute().await,
+            TextSubCommand::Verify(opts) => opts.execute().await,
+            TextSubCommand::Generate(opts) => opts.execute().await,
+            TextSubCommand::Encrypt(opts) => opts.execute().await,
+            TextSubCommand::Decrypt(opts) => opts.execute().await,
+        }
+    }
+}
+
+impl CmdExecutor for TextSignOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let signature = process_text_sign(&self.input, &self.key, self.format)?;
+        let signed = URL_SAFE_NO_PAD.encode(signature);
+        fs::write(&self.output, signed).await?;
+        Ok(())
+    }
+}
+
+impl CmdExecutor for TextVerifyOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let sign = URL_SAFE_NO_PAD.decode(&self.sign)?;
+        let is_match = process_text_verify(&self.input, &self.key, self.format, &sign)?;
+        println!("is_match: {is_match}");
+        Ok(())
+    }
+}
+
+impl CmdExecutor for TextKeyGenerateOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let key = process_text_generate(self.format)?;
+        match self.format {
+            TextKeyGenerateFormat::Blake3 => {
+                let key = &key[0];
+                let filename = self.output.join("blakes.txt");
+                fs::write(filename, key).await?;
+            }
+            TextKeyGenerateFormat::Ed25519 => {
+                let sk = &key[0];
+                let filename = self.output.join("ed25519.sk");
+                fs::write(filename, sk).await?;
+                let pk = &key[1];
+                let filename = self.output.join("ed25519.pk");
+                fs::write(filename, pk).await?;
+            }
+            TextKeyGenerateFormat::Chacha20poly1305 => {
+                let sk = &key[0];
+                let filename = self.output.join("chacha20poly1305.key");
+                fs::write(filename, sk).await?;
+                let pk = &key[1];
+                let filename = self.output.join("chacha20poly1305.nonce");
+                fs::write(filename, pk).await?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl CmdExecutor for TextEncryptOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let ciphertext = process_text_encrypt(&self.input, &self.key, &self.nonce, self.format)?;
+        let ciphertext = URL_SAFE_NO_PAD.encode(ciphertext);
+        fs::write(self.output, ciphertext).await?;
+        Ok(())
+    }
+}
+
+impl CmdExecutor for TextDecryptOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let plaintext = process_text_decrypt(&self.input, &self.key, &self.nonce, self.format)?;
+        println!("plaintext: {}", String::from_utf8(plaintext)?);
+        Ok(())
+    }
 }
