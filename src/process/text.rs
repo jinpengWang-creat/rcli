@@ -8,7 +8,6 @@ use anyhow::{Ok, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use chacha20poly1305::{
     aead::{generic_array::GenericArray, Aead},
-    consts::{U12, U32},
     AeadCore, ChaCha20Poly1305, KeyInit,
 };
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
@@ -25,12 +24,6 @@ pub trait TextVerify {
 }
 
 pub trait KeyLoader {
-    fn load(path: impl AsRef<Path>) -> Result<Self>
-    where
-        Self: Sized;
-}
-
-pub trait NonceLoader {
     fn load(path: impl AsRef<Path>) -> Result<Self>
     where
         Self: Sized;
@@ -164,60 +157,37 @@ impl TextVerify for Ed25519Verifier {
         Ok(ret)
     }
 }
-
-pub struct Chacha20poly1305Key {
-    key: GenericArray<u8, U32>,
+pub struct Chacha20poly1305 {
+    key: [u8; 44],
 }
 
-impl Chacha20poly1305Key {
-    pub fn new(key: GenericArray<u8, U32>) -> Self {
-        Chacha20poly1305Key { key }
+impl Chacha20poly1305 {
+    pub fn new(key: [u8; 44]) -> Self {
+        Chacha20poly1305 { key }
     }
 
     pub fn try_new(key: &[u8]) -> Result<Self> {
-        let key = GenericArray::from_slice(key);
-        let signer = Chacha20poly1305Key::new(*key);
+        let key = key.try_into()?;
+        let signer = Chacha20poly1305::new(key);
         Ok(signer)
     }
 }
 
-impl KeyLoader for Chacha20poly1305Key {
+impl KeyLoader for Chacha20poly1305 {
     fn load(path: impl AsRef<Path>) -> Result<Self> {
         let key = fs::read(path)?;
         Self::try_new(&key)
     }
 }
 
-pub struct Chacha20poly1305Nonce {
-    key: GenericArray<u8, U12>,
-}
-
-impl Chacha20poly1305Nonce {
-    pub fn new(key: GenericArray<u8, U12>) -> Self {
-        Chacha20poly1305Nonce { key }
-    }
-
-    pub fn try_new(key: &[u8]) -> Result<Self> {
-        let key = GenericArray::from_slice(key);
-        let signer = Chacha20poly1305Nonce::new(*key);
-        Ok(signer)
-    }
-}
-
-impl NonceLoader for Chacha20poly1305Nonce {
-    fn load(path: impl AsRef<Path>) -> Result<Self> {
-        let key = fs::read(path)?;
-        Self::try_new(&key)
-    }
-}
-
-impl KeyGenerator for Chacha20poly1305Key {
+impl KeyGenerator for Chacha20poly1305 {
     fn generate() -> Result<Vec<Vec<u8>>> {
+        let mut merge_key = Vec::with_capacity(44);
         let key = ChaCha20Poly1305::generate_key(&mut OsRng);
+        merge_key.extend_from_slice(key.as_slice());
         let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-        let key: Vec<u8> = key.as_slice().into();
-        let nonce: Vec<u8> = nonce.as_slice().into();
-        Ok(vec![key, nonce])
+        merge_key.extend_from_slice(nonce.as_slice());
+        Ok(vec![merge_key])
     }
 }
 
@@ -261,30 +231,30 @@ pub fn process_text_generate(format: TextKeyGenerateFormat) -> Result<Vec<Vec<u8
     match format {
         TextKeyGenerateFormat::Blake3 => Blake3::generate(),
         TextKeyGenerateFormat::Ed25519 => Ed25519Signer::generate(),
-        TextKeyGenerateFormat::Chacha20poly1305 => Chacha20poly1305Key::generate(),
+        TextKeyGenerateFormat::Chacha20poly1305 => Chacha20poly1305::generate(),
     }
 }
 
 pub fn process_text_encrypt(
     input: &str,
     key: &str,
-    nonce: &str,
     format: TextEncryptDecryptFormat,
 ) -> Result<Vec<u8>> {
     let mut reader = get_reader(input)?;
 
     let ciphertext = match format {
         TextEncryptDecryptFormat::Chacha20poly1305 => {
-            let chacha20poly1305_key = Chacha20poly1305Key::load(key)?;
-
-            let chacha20poly1305_nonce = Chacha20poly1305Nonce::load(nonce)?;
+            let chacha = Chacha20poly1305::load(key)?;
             let mut buff = Vec::new();
             reader.read_to_end(&mut buff)?;
 
-            let cipher = ChaCha20Poly1305::new(&chacha20poly1305_key.key);
+            let key = GenericArray::from_slice(&chacha.key[..32]);
+            let nonce = GenericArray::from_slice(&chacha.key[32..]);
+
+            let cipher = ChaCha20Poly1305::new(key);
             cipher
-                .encrypt(&chacha20poly1305_nonce.key, buff.as_ref())
-                .expect("msg")
+                .encrypt(nonce, buff.as_ref())
+                .expect("Error to encrypt text!")
         }
     };
     Ok(ciphertext)
@@ -293,7 +263,6 @@ pub fn process_text_encrypt(
 pub fn process_text_decrypt(
     input: &str,
     key: &str,
-    nonce: &str,
     format: TextEncryptDecryptFormat,
 ) -> Result<Vec<u8>> {
     let mut reader = get_reader(input)?;
@@ -303,13 +272,13 @@ pub fn process_text_decrypt(
 
     let plaintext = match format {
         TextEncryptDecryptFormat::Chacha20poly1305 => {
-            let chacha20poly1305_key = Chacha20poly1305Key::load(key)?;
+            let chacha = Chacha20poly1305::load(key)?;
+            let key = GenericArray::from_slice(&chacha.key[..32]);
+            let nonce = GenericArray::from_slice(&chacha.key[32..]);
 
-            let chacha20poly1305_nonce = Chacha20poly1305Nonce::load(nonce)?;
-
-            let cipher = ChaCha20Poly1305::new(&chacha20poly1305_key.key);
+            let cipher = ChaCha20Poly1305::new(key);
             cipher
-                .decrypt(&chacha20poly1305_nonce.key, ciphertext.as_ref())
+                .decrypt(nonce, ciphertext.as_ref())
                 .expect("Error to decrypt text!")
         }
     };

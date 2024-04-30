@@ -68,8 +68,6 @@ pub struct TextEncryptOpts {
     pub input: String,
     #[arg(short, long, value_parser = verify_file)]
     pub key: String,
-    #[arg(short, long, value_parser = verify_file)]
-    pub nonce: String,
     #[arg(long, default_value = "chacha20poly1305", value_parser = parse_text_encrypt_decrypt_format)]
     pub format: TextEncryptDecryptFormat,
     #[arg(long, default_value = "fixtures/encrypt.txt")]
@@ -82,8 +80,6 @@ pub struct TextDecryptOpts {
     pub input: String,
     #[arg(short, long, value_parser = verify_file)]
     pub key: String,
-    #[arg(short, long, value_parser = verify_file)]
-    pub nonce: String,
     #[arg(long, default_value = "chacha20poly1305", value_parser = parse_text_encrypt_decrypt_format)]
     pub format: TextEncryptDecryptFormat,
 }
@@ -222,9 +218,6 @@ impl CmdExecutor for TextKeyGenerateOpts {
                 let sk = &key[0];
                 let filename = self.output.join("chacha20poly1305.key");
                 fs::write(filename, sk).await?;
-                let pk = &key[1];
-                let filename = self.output.join("chacha20poly1305.nonce");
-                fs::write(filename, pk).await?;
             }
         }
         Ok(())
@@ -233,7 +226,7 @@ impl CmdExecutor for TextKeyGenerateOpts {
 
 impl CmdExecutor for TextEncryptOpts {
     async fn execute(self) -> anyhow::Result<()> {
-        let ciphertext = process_text_encrypt(&self.input, &self.key, &self.nonce, self.format)?;
+        let ciphertext = process_text_encrypt(&self.input, &self.key, self.format)?;
         let ciphertext = URL_SAFE_NO_PAD.encode(ciphertext);
         fs::write(self.output, ciphertext).await?;
         Ok(())
@@ -242,7 +235,7 @@ impl CmdExecutor for TextEncryptOpts {
 
 impl CmdExecutor for TextDecryptOpts {
     async fn execute(self) -> anyhow::Result<()> {
-        let plaintext = process_text_decrypt(&self.input, &self.key, &self.nonce, self.format)?;
+        let plaintext = process_text_decrypt(&self.input, &self.key, self.format)?;
         println!("plaintext: {}", String::from_utf8(plaintext)?);
         Ok(())
     }
