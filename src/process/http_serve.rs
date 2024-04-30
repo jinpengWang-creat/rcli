@@ -34,21 +34,22 @@ pub async fn process_http_serve(path: PathBuf, port: u16) -> Result<()> {
     let state = HttpServeState { path };
     let route = Router::new()
         .nest_service("/tower", dir_serve)
-        .route("/", get(file_handler))
+        .route("/", get(index_handler))
         .route("/*path", get(file_handler))
         .with_state(Arc::new(state));
     axum::serve(listener, route).await?;
     Ok(())
 }
 
+async fn index_handler(State(state): State<Arc<HttpServeState>>) -> Response {
+    process_dir(state.path.clone()).await
+}
+
 async fn file_handler(
     State(state): State<Arc<HttpServeState>>,
-    path_opt: Option<Path<String>>,
+    sub_path: Path<String>,
 ) -> Response {
-    let mut path = state.path.clone();
-    if let Some(sub_path) = path_opt {
-        path = path.join(sub_path.0);
-    }
+    let path = state.path.clone().join(&sub_path.0);
     if path.is_dir() {
         process_dir(path).await
     } else {
@@ -60,12 +61,13 @@ async fn process_dir(path: PathBuf) -> Response {
     match fs::read_dir(path.clone()).await {
         Ok(mut dir) => {
             let mut file_names = vec![];
+            let root = PathBuf::from("/");
             while let Ok(Some(entry)) = dir.next_entry().await {
                 if let Some(file_name) = entry.path().file_name() {
                     file_names.push(
                         format!(
                             "<a href={:?}>{}</a>",
-                            path.join(file_name),
+                            root.join(path.join(file_name)),
                             file_name.to_str().unwrap()
                         )
                         .replace("\\\\", "/"),
