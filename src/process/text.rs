@@ -182,11 +182,9 @@ impl KeyLoader for Chacha20poly1305 {
 
 impl KeyGenerator for Chacha20poly1305 {
     fn generate() -> Result<Vec<Vec<u8>>> {
-        let mut merge_key = Vec::with_capacity(44);
+        let mut merge_key = Vec::with_capacity(32);
         let key = ChaCha20Poly1305::generate_key(&mut OsRng);
         merge_key.extend_from_slice(key.as_slice());
-        // let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-        // merge_key.extend_from_slice(nonce.as_slice());
         Ok(vec![merge_key])
     }
 }
@@ -250,9 +248,8 @@ pub fn process_text_encrypt(
             let chacha = Chacha20poly1305::load(key)?;
             let mut buff = Vec::new();
             reader.read_to_end(&mut buff)?;
-            let key = GenericArray::from_slice(&chacha.key[..32]);
 
-            let cipher = ChaCha20Poly1305::new(key);
+            let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(&chacha.key));
             let ciphertext = cipher
                 .encrypt(&nonce, buff.as_ref())
                 .expect("Error to encrypt text!");
